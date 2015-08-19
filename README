@@ -1,0 +1,117 @@
+Three implementations are designed:
+
+* the H.264 stream parser in the 'h264' directory;
+* the measurement tool in the 'measurement' directory;
+* the coordination protocol in the 'coordination' directory.
+
+A fourth directory named 'data' contains examples of input files.
+
+-------------------------------------------------------------------------------
+1) H.264 stream
+
+This program is used to parse input raw streams H.264 contained in files of 
+extension '.h264'. It parse the different NAL units and writes the different  
+pieces of information related to those NAL units: its index, the size in Kb and 
+the type of NAL unit (name and number).
+
+After compilation by the 'make' command, this program is executed thanks to:
+
+./h264 input.h264 output,
+
+where input.h64 is a H.264 raw stream and output is the file that will contain 
+the different informations about the NAL units. The H.264 samples that were 
+used are located in 'data/video'. Outputs generated are named 'cbr1', 'cbr2', 
+'cbr3', 'vbr1', 'vbr2', and 'vbr3'.
+
+-------------------------------------------------------------------------------
+2) Measurement tool
+
+This program is used to measure the different parameters of the network, as it 
+is explained in the report. The program must be executed on the listeners and 
+senders. 
+
+a) Listener:
+
+The program is executed as:
+
+python measurement.py --listen addr,
+
+where addr is the IP address of the host.
+
+b) Sender:
+
+The program is executed as:
+
+python measurement.py --send addr1 addr2 senders_list,
+
+where addr1 and addr2 are the IP address of respectively the host and the 
+corresponding listener. The last parameter is a file containing the list of 
+senders. An example is given by the file named 'senders'. Each of these senders 
+outputs a file containing the different results of the measurement.
+
+c) Mininet:
+
+The different tests have been made on Mininet. Hence, the execution of these 
+senders and listeners is simplified. It is executed as:
+
+sudo python run.py path_file,
+
+where path_file is file containing a list of pairs (sender, listener). A typical 
+example is given by 'path_meas.txt'. It generates a file named 'senders' and 
+executes the command lines in a) and b).
+
+Note that the topology can be modified: in run.py, the line
+
+net = Mininet(topo=LineTopo(1,1), controller = OVSController),
+
+contains the topology structure: topo=LineTopo(1,1). Different topologies are 
+already available in topos.py.
+
+-------------------------------------------------------------------------------
+3) Coordination protocol
+
+This program implements the coordination protocol as described in the report.
+The structure is similar to that of the measurement tool: it is composed of 
+senders and listeners.
+
+a) Listener:
+
+The program is executed as:
+
+python stream.py --listen addr,
+
+where addr is the IP address of the host.
+
+b) Sender:
+
+The program is executed as:
+
+python stream.py --send params video,
+
+where params is a file containing the parameters (IP addresses, envelopes) of 
+the sender, and video is a file containing the parsed video sample to be 
+sent. It outputs a file containing the evolution of the buffer size, the envelope 
+size, the frame size, and the  stream that is sent.
+
+The video file in parameter contains the evolution of the VCL units for both 
+cbr and VBR frames. These VCL units are considered to be IDR or non-IDR frames. 
+Hence, this file is based on the output file of h264, but need to be changed 
+to remove the non VCL units. This has been made thanks to Matlab and the 
+script coord_stat.m, present in the 'data' directory. This file is not 
+commented and is made only to read cbr1, cbr2, cbr3, vbr1, vbr2, and vbr3. 
+Examples of video that are used by senders are the files 'video1', 'video2' 
+and 'video3'.
+
+c) Mininet:
+
+The different tests have also been made on Mininet. Hence, the execution of 
+these senders and listeners is simplified. It is executed as:
+
+sudo python run.py path_file,
+
+where path_file is file containing a list of pairs (sender, listener) and the 
+video that the sender streams. A typical example is given by 'path_coord.txt'. 
+It generates a file named 'senders' and executes the command lines in a) and 
+b).
+
+The topology can be modified the same way than for the measurement tool.
