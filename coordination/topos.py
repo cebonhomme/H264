@@ -29,11 +29,11 @@ class LineTopo(Topo):
            if i == n-1:
               self.addLink(switch[i], dest, cls=TCLink, bw = 5, max_queue_size = 3000, delay='10ms')
            else:
-              self.addLink(switch[i], switch[i+1], cls=TCLink, bw = 100, max_queue_size = 1000)
+              self.addLink(switch[i], switch[i+1], cls=TCLink, bw = 100, max_queue_size = 10000)
                
         for i in range(k):
            hosts[i] = self.addHost( 'h%s'% (i + 1))
-           self.addLink(hosts[i], switch[0], cls=TCLink, bw = 1000, max_queue_size = 1000)
+           self.addLink(hosts[i], switch[0], cls=TCLink, bw = 1000, max_queue_size = 10000)
            
 ###############################################################################
 class CorrelTopo(Topo):
@@ -56,15 +56,15 @@ class CorrelTopo(Topo):
            hosts[2*i] = self.addHost( 'h%s'% (2*i + 1))
            hosts[2*i+1] = self.addHost( 'h%s'% (2*i + 2))
            
-           self.addLink(switch[i], hosts[2*i], cls=TCLink, bw = 1000, max_queue_size = 1000)
-           self.addLink(switch[i], hosts[2*i+1], cls=TCLink, bw = 1000, max_queue_size = 1000)
+           self.addLink(switch[i], hosts[2*i], cls=TCLink, bw = 1000, max_queue_size = 10000)
+           self.addLink(switch[i], hosts[2*i+1], cls=TCLink, bw = 1000, max_queue_size = 10000)
            
            if i == n-1:
               for j in range(k):
                  dests[j] = self.addHost( 'h%s'% (2*n + 1 + j))
-                 self.addLink(switch[i], dests[j], cls=TCLink, bw = 2, max_queue_size = 100, delay='10ms')
+                 self.addLink(switch[i], dests[j], cls=TCLink, bw = 5, max_queue_size = 3000, delay='10ms')
            else:
-              self.addLink(switch[i], switch[i+1], cls=TCLink, bw = 2, max_queue_size = 100)
+              self.addLink(switch[i], switch[i+1], cls=TCLink, bw = 2.5, max_queue_size = 3000)
 
 ###############################################################################
 topos = {

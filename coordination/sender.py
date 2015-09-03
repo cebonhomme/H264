@@ -56,15 +56,20 @@ class Sender:
       else:
          self.base_frame_size = (params[2]/Sender.fps)
 
-         # Computing the bandwidth gain
+         # Computing the bandwidth gain for the current source, regarding the 
+         # others: a list (ip_address, delta_rho, sigma) is kept for each source 
+         # with sigma unknown.
          for i in range(3, len(params)):
             margin =  ((params[i][1] - params[2])/Sender.fps)
             self.sources.append([params[i][0], margin, -1])
 
+      # The actual neighbours are kept in another list, if the margin is not 0.
+      # For those neighbours, two elements are added: a timeout (initially undef)
+      # and a boolean (true for correlated neighbours, false for the others).
       self.cN = []
       for n in self.sources:
          if n[1] != 0:
-            self.cN.append([n[0], n[1], n[2], -1])
+            self.cN.append([n[0], n[1], n[2], -1, True])
  
       self.nm = 0
       
@@ -113,7 +118,7 @@ class Sender:
    def isSource(self, addr):
       for k in range(len(self.sources)):
          if addr == self.sources[k][0]:
-            self.sources[k]
+            return self.sources[k]
       return None
    
    # Gathers the TCP messages from the TCP queue. If the sender 
@@ -129,8 +134,10 @@ class Sender:
              elif p[0] == 'prune':
                 src = self.isSource(addr)
                 if src:
-                   self.cN.add((src[0], src[1], p[1][0], -1))
-                   self.sig = self.updateSigma()
+                   self.notify(addr, 'prune', [self.sigma])
+                   self.cN.append([src[0], src[1], p[1][0], -1, False])
+                   self.updateSigma()
+
       finally:
          return msgs
 
@@ -184,7 +191,7 @@ class Sender:
    def run(self, rounds=1):
 
       a,b = self.findIndex()
-         
+
       if a != -1:
          self.wait(self.sources[a][0], 'turn')
       
@@ -201,14 +208,16 @@ class Sender:
    
       # Sigma is computed.
       self.updateSigma()
-      print self.cN
+
       # Opening the connection at the listener side.
       if not self.notify(self.dest, 'init_stream'):
          return
       time.sleep(1)  
 
       # Initialization of the different parameters.
-      max_frame_size = self.base_frame_size
+      cbr_frame_size = 1500/Sender.fps
+      vbr_frame_size = self.base_frame_size
+      delta_size = 0
       buffer = 0
       CBR = 0      
       s_tot = 0
@@ -233,22 +242,24 @@ class Sender:
                # Implicit: a timeout is given.
                if self.cN[i][3] != -1 and self.cN[i][3] <= t:
                   self.cN[i][3] = -1
-                  max_frame_size -= self.cN[i][1]
+                  delta_size -= self.cN[i][1]
             
-            # Handling incoming messages from neighbours.
+            # Handling incoming messages from neighbours. These neighbours 
+            # must be correlated (i.e. influence the local source).
             msgs = self.flush_queue()
             for msg in msgs:
-               if msg[1][0] == 'switch':
+               if msg[1][0] == 'switch' and self.cN[msg[0]][4]:
                   self.cN[msg[0]][3] = msg[1][1][0]
-                  max_frame_size += self.cN[msg[0]][1]
+                  delta_size += self.cN[msg[0]][1]
 
             # Case 1: If streaming in CBR, stay in CBR.
             if CBR:
                s = self.cbr[j][1]
             # Case 2: the VBR frame is too large, even for the buffer.
             # In this case, switch to CBR instantaneously.
-            elif self.vbr[j][1] - max_frame_size > self.sig - buffer:
+            elif self.vbr[j][1] - (vbr_frame_size + delta_size) > self.sig - buffer:
                CBR = 1
+               print t
                self.notifyAll('switch', [t + (GOP - f)*Sender.dt])
                s = self.cbr[j][1]
             # Case 3: sending the VBR frame.
@@ -259,14 +270,17 @@ class Sender:
             self.udpClient.send(s)
             
             # Buffering capacity refreshment.
-            buffer += s - max_frame_size
-            buffer = max(0, min(self.sig, buffer))
-
+            if CBR:
+               buffer += s - (cbr_frame_size + delta_size)
+               buffer = max(0, min(self.sig, buffer))
+               log.append((self.sig, buffer, (cbr_frame_size + delta_size), s, CBR))
+            else:
+               buffer += s - (vbr_frame_size + delta_size)
+               buffer = max(0, min(self.sig, buffer))
+               log.append((self.sig, buffer, (vbr_frame_size + delta_size), s, CBR))
+               
             # Going to the next frame of the GOP.
             f += 1
-
-            # Logging statistics.
-            log.append((self.sig, buffer, max_frame_size, s, CBR))
             
             # Waiting for the next frame.
             time.sleep(max(0, Sender.dt - (time.time() - t)))
